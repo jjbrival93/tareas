@@ -1,101 +1,191 @@
-# Laboratorio: Backend CRUD de Tareas con Clean Architecture y Spring Boot
+# 🚀 Laboratorio: Clean Architecture con Spring Boot (CRUD en Memoria + Docker)
 
-Este proyecto es un laboratorio práctico diseñado para estudiantes de segundo semestre (Análisis y Diseño de Sistemas). Su objetivo es introducir los conceptos fundamentales de **Clean Architecture** y el desacoplamiento de capas utilizando **Spring Boot**, sin la complejidad de bases de datos relacionales o interfaces gráficas pesadas.
+Este proyecto es una guía práctica diseñada para estudiantes de semestres tempranos de ingeniería con el fin de introducir los conceptos clave de **Clean Architecture** utilizando **Spring Boot**, sin la complejidad de bases de datos externas o interfaces gráficas pesadas.
 
 ---
 
-## 🏗️ Estructura del Proyecto (Clean Architecture)
+## 🏛️ Estructura del Proyecto (Clean Architecture)
 
-El proyecto sigue estrictamente la regla de dependencia: **las capas externas conocen a las internas, pero el núcleo no sabe nada de los frameworks externos.**
+El código está estrictamente dividido en tres capas para demostrar el desacoplamiento y la independencia de frameworks:
 
 ```text
 com.universidad.tareas
 │
-├── domain/                    (Núcleo: Java puro, sin frameworks)
+├── domain/                    (Cero frameworks, Java puro - Reglas de negocio y entidades)
 │   ├── model/
 │   │   └── Task.java
 │   └── repository/
 │       └── TaskRepository.java (Interfaz)
 │
-├── usecase/                   (Lógica de Negocio: Java puro)
+├── usecase/                   (Lógica de la aplicación - Casos de uso independientes)
 │   ├── CrearTareaUseCase.java
 │   ├── ListarTareasUseCase.java
 │   ├── BuscarTareaPorIdUseCase.java
 │   ├── ActualizarTareaUseCase.java
 │   └── EliminarTareaUseCase.java
 │
-└── infrastructure/            (El Exterior: Spring Boot y Adaptadores)
+└── infrastructure/            (Adaptadores, Configuración de Beans y controladores REST)
     ├── config/
     │   └── BeanConfiguration.java
     ├── persistence/
-    │   └── InMemoryTaskRepository.java (Lista en memoria `List<Task>`)
+    │   └── InMemoryTaskRepository.java (Simulación de BD con ArrayList)
     └── rest/
-        └── TaskController.java     (Endpoints REST JSON)
+        └── TaskController.java     (Endpoints HTTP / JSON)
 ```
 
 ---
 
-## 🚀 ¿Cómo Ejecutar el Proyecto?
+## 💻 Implementación de las Capas (Código del Laboratorio)
 
-Abre tu terminal en la raíz del proyecto y utiliza el **Maven Wrapper** incluido:
+### 1. Capa `domain` (Núcleo Puro)
+```java
+// domain/model/Task.java
+package com.universidad.tareas.domain.model;
 
-*   **En Mac / Linux:**
-    ```bash
-    ./mvnw spring-boot:run
-    ```
-*   **En Windows:**
-    ```cmd
-    mvnw.cmd spring-boot:run
-    ```
+public class Task {
+    private Long id;
+    private String titulo;
+    private boolean completada;
 
-También puedes abrir la clase principal en tu IDE favorito (IntelliJ IDEA, Eclipse, STS) que contenga la anotación `@SpringBootApplication` y presionar el botón **Play / Run**.
+    public Task(Long id, String titulo, boolean completada) {
+        this.id = id;
+        this.titulo = titulo;
+        this.completada = completada;
+    }
 
-La aplicación iniciará en el puerto por defecto: `http://localhost:8080`
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    
+    public String getTitulo() { return titulo; }
+    public void setTitulo(String titulo) { this.titulo = titulo; }
+    
+    public boolean isCompletada() { return completada; }
+    public void setCompletada(boolean completada) { this.completada = completada; }
+}
+```
+
+```java
+// domain/repository/TaskRepository.java
+package com.universidad.tareas.domain.repository;
+
+import com.universidad.tareas.domain.model.Task;
+import java.util.List;
+import java.util.Optional;
+
+public interface TaskRepository {
+    Task guardar(Task task);
+    List<Task> listarTodas();
+    Optional<Task> buscarPorId(Long id);
+    void eliminar(Long id);
+}
+```
+
+### 2. Capa `usecase` (Lógica de Negocio)
+```java
+// usecase/CrearTareaUseCase.java
+package com.universidad.tareas.usecase;
+
+import com.universidad.tareas.domain.model.Task;
+import com.universidad.tareas.domain.repository.TaskRepository;
+
+public class CrearTareaUseCase {
+    private final TaskRepository taskRepository;
+
+    public CrearTareaUseCase(TaskRepository taskRepository) {
+        this.taskRepository = taskRepository;
+    }
+
+    public Task ejecutar(String titulo) {
+        if (titulo == null || titulo.trim().isEmpty()) {
+            throw new IllegalArgumentException("El título no puede estar vacío");
+        }
+        Long id = System.currentTimeMillis();
+        Task nuevaTask = new Task(id, titulo, false);
+        return taskRepository.guardar(nuevaTask);
+    }
+}
+```
+
+### 3. Capa `infrastructure` (Adaptadores, Configuración y REST)
+```java
+// infrastructure/config/BeanConfiguration.java
+package com.universidad.tareas.infrastructure.config;
+
+import com.universidad.tareas.domain.repository.TaskRepository;
+import com.universidad.tareas.usecase.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class BeanConfiguration {
+    @Bean
+    public CrearTareaUseCase crearTareaUseCase(TaskRepository repo) { return new CrearTareaUseCase(repo); }
+    @Bean
+    public ListarTareasUseCase listarTareasUseCase(TaskRepository repo) { return new ListarTareasUseCase(repo); }
+    @Bean
+    public BuscarTareaPorIdUseCase buscarTareaPorIdUseCase(TaskRepository repo) { return new BuscarTareaPorIdUseCase(repo); }
+    @Bean
+    public ActualizarTareaUseCase actualizarTareaUseCase(TaskRepository repo) { return new ActualizarTareaUseCase(repo); }
+    @Bean
+    public EliminarTareaUseCase eliminarTareaUseCase(TaskRepository repo) { return new EliminarTareaUseCase(repo); }
+}
+```
 
 ---
 
-## 🧪 Endpoints Disponibles para Probar (Postman / Insomnia)
+## 🐳 Guía Completa de Ejecución con Docker
 
-Puedes consumir la API REST enviando peticiones en formato JSON:
+Para empaquetar y ejecutar este proyecto utilizando contenedores, sigue estos pasos al pie de la letra:
 
-### 1. Crear Tarea (POST)
-*   **URL:** `http://localhost:8080/api/tasks`
-*   **Método:** `POST`
-*   **Headers:** `Content-Type: application/json`
-*   **Body (JSON):**
-    ```json
-    {
-      "titulo": "Estudiar Clean Architecture"
-    }
-    ```
+### Paso 1: Crear el archivo `Dockerfile`
+En la raíz de tu proyecto (al mismo nivel que `pom.xml`), asegúrate de tener un archivo llamado exactamente `Dockerfile` con el siguiente contenido de compilación por fases (*multistage build*):
 
-### 2. Listar Todas las Tareas (GET)
-*   **URL:** `http://localhost:8080/api/tasks`
-*   **Método:** `GET`
+```dockerfile
+# Fase 1: Compilación de la aplicación con Maven
+FROM maven:3.9.6-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY . .
+RUN ./mvnw clean package -DskipTests
 
-### 3. Buscar Tarea por ID (GET)
-*   **URL:** `http://localhost:8080/api/tasks/{id}`
-*   **Método:** `GET`
+# Fase 2: Ejecución de la aplicación con Java 17 JRE
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
 
-### 4. Actualizar Tarea (PUT)
-*   **URL:** `http://localhost:8080/api/tasks/{id}`
-*   **Método:** `PUT`
-*   **Headers:** `Content-Type: application/json`
-*   **Body (JSON):**
-    ```json
-    {
-      "titulo": "Estudiar Clean Architecture (Completado)",
-      "completada": true
-    }
-    ```
+# Exponer el puerto por defecto de Spring Boot
+EXPOSE 8080
 
-### 5. Eliminar Tarea (DELETE)
-*   **URL:** `http://localhost:8080/api/tasks/{id}`
-*   **Método:** `DELETE`
+# Comando de inicio del contenedor
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+### Paso 2: Construir la imagen de Docker
+Abre tu terminal en la raíz del proyecto y ejecuta el siguiente comando para construir la imagen (asegúrate de incluir el punto `.` al final, que indica el directorio actual):
+
+```bash
+docker build -t api-tareas-clean .
+```
+
+### Paso 3: Ejecutar el contenedor
+Una vez finalizada la compilación, pon en marcha el contenedor mapeando el puerto `8080` de tu máquina local al puerto `8080` del contenedor:
+
+```bash
+docker run -p 8080:8080 api-tareas-clean
+```
+
+Al ver el banner de Spring Boot y el mensaje `Started TareasApplication`, tu aplicación estará corriendo exitosamente dentro de Docker.
 
 ---
 
-## 💡 Conceptos Clave para la Clase
-1. **Independencia del Framework:** Las carpetas `domain` y `usecase` no tienen ninguna anotación de Spring (`@Service`, `@RestController`, etc.). Si mañana se decide cambiar Spring Boot por otro framework, la lógica de negocio permanece intacta.
-2. **Inversión de Dependencias:** La interfaz `TaskRepository` es propiedad del dominio, pero es implementada en la infraestructura (`InMemoryTaskRepository`) e inyectada mediante configuración explícita en `BeanConfiguration.java`.
-3. **Persistencia en Memoria:** Al no usar bases de datos reales, los datos se almacenan temporalmente en una estructura `List<Task>` en RAM mientras la aplicación esté ejecutándose.
+## 🌐 Endpoints de la API (Pruebas)
+
+Una vez que la aplicación esté corriendo en Docker, puedes consumirla en la siguiente URL base:
+`http://localhost:8080/api/tasks`
+
+| Operación | Método HTTP | Ruta | Cuerpo de la Petición (JSON) |
+| :--- | :--- | :--- | :--- |
+| **Crear Tarea** | `POST` | `/api/tasks` | `{"titulo": "Estudiar Clean Architecture"}` |
+| **Listar Todas** | `GET` | `/api/tasks` | *Ninguno* |
+| **Buscar por ID** | `GET` | `/api/tasks/{id}` | *Ninguno* |
+| **Actualizar** | `PUT` | `/api/tasks/{id}` | `{"titulo": "Tarea Actualizada", "completada": true}` |
+| **Eliminar** | `DELETE` | `/api/tasks/{id}` | *Ninguno* |

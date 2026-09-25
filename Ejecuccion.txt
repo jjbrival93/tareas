@@ -1,0 +1,1 @@
+./docker-clean.sh && docker build -t api-tareas-clean . && docker run -p 8080:8080 api-tareas-clean
